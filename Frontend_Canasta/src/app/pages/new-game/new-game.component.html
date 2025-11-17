@@ -1,0 +1,49 @@
+<div class="container mt-5 d-flex justify-content-center">
+  <div class="card shadow" style="max-width: 500px; width: 100%;">
+    <div class="card-body">
+      <h3 class="card-title mb-3 text-center">Új játék létrehozása</h3>
+
+      <p class="text-muted text-center mb-4">
+        Add meg a csapatneveket.
+      </p>
+
+      <div *ngIf="errorMessage" class="alert alert-danger">
+        {{ errorMessage }}
+      </div>
+
+      <div *ngFor="let name of teamNames; let i = index" class="mb-3 d-flex align-items-center">
+        <input
+          class="form-control me-2"
+          [(ngModel)]="teamNames[i].name"
+          placeholder="Csapat {{ i + 1 }} neve"
+        />
+
+        <button
+          type="button"
+          class="btn btn-outline-danger btn-sm"
+          (click)="removeTeam(i)"
+          [disabled]="teamNames.length <= 2">
+          ✕
+        </button>
+      </div>
+
+      <div class="d-flex justify-content-between mt-3">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="addTeam()"
+          [disabled]="!canAddTeam">
+          + Csapat hozzáadása
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="createGame()"
+          [disabled]="!canStartGame">
+          Játék
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
