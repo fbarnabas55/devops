@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Data.Migrations
 {
     [DbContext(typeof(KanastaDbContext))]
-    [Migration("20251117151859_InitialCreate")]
+    [Migration("20251118004552_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -154,7 +154,7 @@ namespace Data.Migrations
                     b.HasOne("Entities.Models.Team", "Team")
                         .WithMany()
                         .HasForeignKey("TeamId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Round");

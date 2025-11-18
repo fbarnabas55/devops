@@ -185,5 +185,86 @@ namespace Canasta.Controllers
 
             return Ok();
         }
+
+
+
+        [HttpGet("{gameId}/Rounds")]
+        public async Task<IActionResult> GetRoundsByGame(int gameId)
+        {
+            var rounds = await _context.Rounds
+                .Where(r => r.GameId == gameId)
+                .Include(r => r.Scores)
+                .ToListAsync();
+
+            return Ok(rounds);
+        }
+
+
+        [HttpPost("save-round")]
+        public async Task<ActionResult> SaveRound([FromBody] SaveRoundRequest request)
+        {
+            var game = await _context.Games
+                .Include(g => g.Teams)
+                .Include(g => g.Rounds)
+                    .ThenInclude(r => r.Scores)
+                .FirstOrDefaultAsync(g => g.Id == request.GameId);
+
+            if (game == null)
+                return NotFound("Game not found.");
+
+            // 1 kör objektum
+            var round = game.Rounds
+                .FirstOrDefault(r => r.RoundNumber == request.RoundNumber);
+
+            if (round == null)
+            {
+                round = new Round
+                {
+                    GameId = game.Id,
+                    Game = game,
+                    RoundNumber = request.RoundNumber
+                };
+                _context.Rounds.Add(round);
+                game.Rounds.Add(round);    // biztosan benne legyen a gyűjteményben
+            }
+
+            // pontok mentése minden csapatra
+            foreach (var s in request.Scores)
+            {
+                var score = round.Scores.FirstOrDefault(x => x.TeamId == s.TeamId);
+                if (score == null)
+                {
+                    score = new RoundScore
+                    {
+                        Round = round,
+                        TeamId = s.TeamId,
+                        Score = s.Score
+                    };
+                    _context.RoundScores.Add(score);
+                }
+                else
+                {
+                    score.Score = s.Score;
+                }
+            }
+
+            // összpontok újraszámolása
+            var totals = game.Teams.ToDictionary(t => t.Id, t => 0);
+
+            foreach (var r in game.Rounds)
+                foreach (var sc in r.Scores)
+                    totals[sc.TeamId] += sc.Score;
+
+            var winner = totals.FirstOrDefault(x => x.Value >= 10000);
+
+            if (winner.Value >= 10000)
+            {
+                game.IsFinished = true;
+                game.WinningTeamId = winner.Key;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
     }
 }

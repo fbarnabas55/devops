@@ -1,6 +1,9 @@
+import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { GameService } from '../../services/game.service';
+import { GameDetailsDto, GameService, RoundDto, TeamDto } from '../../services/game.service';
+import { forkJoin } from 'rxjs';
+
 
 @Component({
   selector: 'app-game-board',
@@ -12,79 +15,114 @@ export class GameBoardComponent implements OnInit {
 
   gameId!: number;
 
-  teams: any[] = []; // backendből jön
-  rounds: any[] = []; // { roundNumber, scores[] }
+  game: GameDetailsDto | null = null;
+  teams: TeamDto[] = [];
+  rounds: RoundDto[] = [];
 
+  // összesített pontok csapatonként
   totals: { [teamId: number]: number } = {};
-  isFinished = false;
-  winningTeamName: string | null = null;
+
+  // új kör pontjai (teamId -> score)
+  newRoundScores: { [teamId: number]: number | null } = {};
+
+  winner: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private gameService: GameService
   ) {}
 
-  ngOnInit() {
-    this.gameId = Number(this.route.snapshot.paramMap.get('id'));
+  ngOnInit(): void {
+    const idParam = this.route.snapshot.paramMap.get('id');
+    this.gameId = Number(idParam);
+
+    if (isNaN(this.gameId)) {
+      console.error('Érvénytelen gameId a route-ban');
+      return;
+    }
+
     this.loadGame();
   }
 
-  loadGame() {
-    this.gameService.getGameDetails(this.gameId).subscribe(game => {
-      this.teams = game.teams;
-      this.rounds = game.rounds;
-      this.isFinished = game.isFinished;
-      this.winningTeamName = game.winningTeamName;
-      this.calculateTotals();
+  // Játék + körök + csapatok betöltése egyben
+  loadGame(): void {
+    this.gameService.getGame(this.gameId).subscribe({
+      next: (game) => {
+        this.game = game;
+        this.teams = game.teams;
+        this.rounds = game.rounds ?? [];
+        this.winner = game.winningTeamName ?? null;
+
+        this.recalcTotals();
+        this.resetNewRoundScores();
+      },
+      error: (err) => {
+        console.error('Hiba a játék betöltésekor:', err);
+      }
     });
   }
 
-  calculateTotals() {
-    this.totals = {};
-    for (let team of this.teams) {
-      this.totals[team.id] = 0;
+  // összesített pontok újraszámolása
+  private recalcTotals(): void {
+    const totals: { [id: number]: number } = {};
+
+    // inicializáljuk 0-val
+    for (const t of this.teams) {
+      totals[t.id] = 0;
     }
 
-    for (let round of this.rounds) {
-      for (let score of round.scores) {
-        this.totals[score.teamId] += score.score;
+    for (const r of this.rounds) {
+      for (const s of (r.scores || [])) {
+        if (totals[s.teamId] === undefined) {
+          totals[s.teamId] = 0;
+        }
+        totals[s.teamId] += s.score;
       }
     }
+
+    this.totals = totals;
   }
 
-  onScoreChange(round: any, teamId: number, value: string) {
-    const score = Number(value) || 0;
-
-    // módosítjuk a lokális adatot
-    const s = round.scores.find((x: any) => x.teamId === teamId);
-    s.score = score;
-    this.calculateTotals();
-
-    // automatikus mentés backend felé
-    this.gameService.updateScore(this.gameId, round.roundNumber, teamId, score)
-      .subscribe();
-  }
-
-  addRound() {
-    const nextRound = this.rounds.length + 1;
-
-    const newRound = {
-      roundNumber: nextRound,
-      scores: this.teams.map(t => ({
-        teamId: t.id,
-        score: 0
-      }))
-    };
-
-    this.rounds.push(newRound);
-
-    // mentés minden csapathoz (0 ponttal)
-    for (let team of this.teams) {
-      this.gameService.updateScore(this.gameId, nextRound, team.id, 0)
-        .subscribe();
+  // új kör inputok alaphelyzetbe
+  private resetNewRoundScores(): void {
+    this.newRoundScores = {};
+    for (const t of this.teams) {
+      this.newRoundScores[t.id] = null;
     }
-
-    this.calculateTotals();
   }
 
+  // egy cellához tartozó pont lekérése (round + team alapján)
+  getScoreFor(round: RoundDto, team: TeamDto): number | null {
+    const score = (round.scores || []).find(s => s.teamId === team.id);
+    return score ? score.score : null;
+  }
+
+  
+
+  // Kör mentése gomb
+  addRound() {
+  if (!this.teams.length) return;
+  if (Object.values(this.newRoundScores).some(v => v == null || v === undefined)) {
+    alert('Minden csapat pontját add meg, mielőtt mented a kört!');
+    return;
+  }
+
+  const existingRoundNumbers = this.rounds.map(r => r.roundNumber);
+  const nextRoundNumber = existingRoundNumbers.length
+    ? Math.max(...existingRoundNumbers) + 1
+    : 1;
+
+  const scores = this.teams.map(t => ({
+    teamId: t.id,
+    score: Number(this.newRoundScores[t.id])
+  }));
+
+  this.gameService.saveRound(this.gameId, nextRoundNumber, scores)
+    .subscribe({
+      next: () => {
+        this.loadGame();      // újratölti a köröket + összesítést
+      },
+      error: err => console.error(err)
+    });
+  }
 }

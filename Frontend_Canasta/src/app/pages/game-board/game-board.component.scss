@@ -1,6 +1,31 @@
-table {
-  input {
-    width: 80px;
-    text-align: center;
-  }
+.scoreboard-table {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.table-row:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  transition: 0.2s ease;
+}
+
+.new-round-row {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.score-input {
+  max-width: 90px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.score-input:focus {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: #9bb4ff;
+  color: #fff;
+}
+
+.alert {
+  border-radius: 10px;
 }
