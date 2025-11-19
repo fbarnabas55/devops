@@ -1,31 +1,88 @@
-.scoreboard-table {
-  border-radius: 10px;
-  overflow: hidden;
+.header-card {
+  background: linear-gradient(135deg, #eaf2ff, #ffffff);
+  border-left: 5px solid #0d6efd;
+  border-radius: 12px !important;
 }
 
-.table-row:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  transition: 0.2s ease;
+.winner-banner {
+  background: #ffe08a;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  color: #7a5400;
+  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+}
+
+.table-card {
+  border-radius: 12px !important;
+}
+
+.scoreboard-table thead {
+  background: #0d6efd;
+  color: white;
+}
+
+.scoreboard-table thead th {
+  padding: 14px 0;
+  font-size: 1.1rem;
+}
+
+.round-row {
+  background: #f8f9fa;
+}
+
+.round-row:nth-child(odd) {
+  background: #eef3f8;
+}
+
+.round-number {
+  font-weight: bold;
+  color: #0d6efd;
+  font-size: 1.1rem;
+}
+
+.score-badge {
+  background: #343a40;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 12px;
+  display: inline-block;
+  font-size: 1rem;
+  box-shadow: 0 0 4px rgba(0,0,0,0.15);
 }
 
 .new-round-row {
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: #e7f1ff;
 }
 
-.score-input {
-  max-width: 90px;
+.new-round-title {
+  font-weight: bold;
+  color: #0d6efd;
+}
+
+.new-score-input {
+  max-width: 100px;
   margin: 0 auto;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
+  border-radius: 8px;
 }
 
-.score-input:focus {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: #9bb4ff;
-  color: #fff;
+.total-row {
+  background: #0d6efd;
+  color: white;
+  font-size: 1.1rem;
 }
 
-.alert {
+.total-score {
+  font-weight: bold;
+  color: #000000;
+}
+
+.save-btn {
   border-radius: 10px;
+  font-size: 1.1rem;
+  padding: 10px 26px !important;
+}
+
+.winner-alert {
+  border-radius: 12px;
 }
