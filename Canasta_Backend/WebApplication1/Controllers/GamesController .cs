@@ -18,9 +18,6 @@ namespace Canasta.Controllers
             _context = context;
         }
 
-        // ------------------------------------------------------------
-        // 1) Játék létrehozása
-        // ------------------------------------------------------------
         [HttpPost]
         public async Task<ActionResult<GameDetailsDto>> CreateGame(CreateGameRequest request)
         {
@@ -46,9 +43,7 @@ namespace Canasta.Controllers
             return await GetGameDetails(game.Id);
         }
 
-        // ------------------------------------------------------------
-        // 2) Összes játék listázása (home page)
-        // ------------------------------------------------------------
+     
         [HttpGet]
         public async Task<ActionResult<List<GameListItemDto>>> GetGames()
         {
@@ -70,9 +65,7 @@ namespace Canasta.Controllers
             return list;
         }
 
-        // ------------------------------------------------------------
-        // 3) Játék részletes adatainak lekérése
-        // ------------------------------------------------------------
+
         [HttpGet("{id}")]
         public async Task<ActionResult<GameDetailsDto>> GetGameDetails(int id)
         {
@@ -118,9 +111,7 @@ namespace Canasta.Controllers
             return dto;
         }
 
-        // ------------------------------------------------------------
-        // 4) Pont frissítés (kör + csapat pont)
-        // ------------------------------------------------------------
+    
         [HttpPost("update-score")]
         public async Task<ActionResult> UpdateScore(UpdateScoreRequest request)
         {
@@ -166,14 +157,12 @@ namespace Canasta.Controllers
 
             await _context.SaveChangesAsync();
 
-            // 🔥 HELYES ÖSSZESÍTÉS
             var teamTotals = game.Teams.ToDictionary(t => t.Id, _ => 0);
 
             foreach (var r in game.Rounds)
                 foreach (var sc in r.Scores)
                     teamTotals[sc.TeamId] += sc.Score;
 
-            // 🔥 Győztes meghatározása
             var winnerTeam = game.Teams
                 .FirstOrDefault(t => teamTotals[t.Id] >= 10000);
 
@@ -258,14 +247,12 @@ namespace Canasta.Controllers
 
             await _context.SaveChangesAsync();
 
-            // 🔥 HELYES ÖSSZESÍTÉS: SEMMI MÁS, CSAK ROUNDOKBÓL SZÁMOLUNK
             var teamTotals = game.Teams.ToDictionary(t => t.Id, _ => 0);
 
             foreach (var r in game.Rounds)
                 foreach (var sc in r.Scores)
                     teamTotals[sc.TeamId] += sc.Score;
 
-            // 🔥 HELYES GYŐZELEM ELLENŐRZÉS
             var winnerTeam = game.Teams
                 .FirstOrDefault(t => teamTotals[t.Id] >= 10000);
 

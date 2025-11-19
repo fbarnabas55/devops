@@ -19,10 +19,8 @@ export class GameBoardComponent implements OnInit {
   teams: TeamDto[] = [];
   rounds: RoundDto[] = [];
 
-  // összesített pontok csapatonként
   totals: { [teamId: number]: number } = {};
 
-  // új kör pontjai (teamId -> score)
   newRoundScores: { [teamId: number]: number | null } = {};
 
   winner: string | null = null;
@@ -44,7 +42,6 @@ export class GameBoardComponent implements OnInit {
     this.loadGame();
   }
 
-  // Játék + körök + csapatok betöltése egyben
   loadGame(): void {
     this.gameService.getGame(this.gameId).subscribe({
       next: (game) => {
@@ -62,11 +59,9 @@ export class GameBoardComponent implements OnInit {
     });
   }
 
-  // összesített pontok újraszámolása
   private recalcTotals(): void {
     const totals: { [id: number]: number } = {};
 
-    // inicializáljuk 0-val
     for (const t of this.teams) {
       totals[t.id] = 0;
     }
@@ -83,7 +78,6 @@ export class GameBoardComponent implements OnInit {
     this.totals = totals;
   }
 
-  // új kör inputok alaphelyzetbe
   private resetNewRoundScores(): void {
     this.newRoundScores = {};
     for (const t of this.teams) {
@@ -91,7 +85,6 @@ export class GameBoardComponent implements OnInit {
     }
   }
 
-  // egy cellához tartozó pont lekérése (round + team alapján)
   getScoreFor(round: RoundDto, team: TeamDto): number | null {
     const score = (round.scores || []).find(s => s.teamId === team.id);
     return score ? score.score : null;
@@ -99,7 +92,6 @@ export class GameBoardComponent implements OnInit {
 
   
 
-  // Kör mentése gomb
   addRound() {
   if (!this.teams.length) return;
   if (Object.values(this.newRoundScores).some(v => v == null || v === undefined)) {
@@ -120,7 +112,7 @@ export class GameBoardComponent implements OnInit {
   this.gameService.saveRound(this.gameId, nextRoundNumber, scores)
     .subscribe({
       next: () => {
-        this.loadGame();      // újratölti a köröket + összesítést
+        this.loadGame();      
       },
       error: err => console.error(err)
     });

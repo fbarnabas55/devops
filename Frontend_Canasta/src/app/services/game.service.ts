@@ -41,12 +41,10 @@ export class GameService {
     return this.http.post<GameDetailsDto>(this.baseUrl, { teamNames });
   }
 
-  // Játékok listája (home page-hez, maradhat any, ha máshol már így használod)
   getGames(): Observable<any[]> {
     return this.http.get<any[]>(this.baseUrl);
   }
 
-  // Egy játék részletei (GameBoard-hoz)
   getGame(id: number): Observable<GameDetailsDto> {
     return this.http.get<GameDetailsDto>(`${this.baseUrl}/${id}`);
   }

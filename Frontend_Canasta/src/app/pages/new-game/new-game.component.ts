@@ -10,7 +10,6 @@ import { Router } from '@angular/router';
 })
 export class NewGameComponent {
 
-  // Alapból 2 csapat
   teamNames = [
     { name: '' },
     { name: '' }
@@ -65,7 +64,6 @@ export class NewGameComponent {
       return;
     }
 
-    // duplikátum ellenőrzés
     const lower = nonEmpty.map(n => n.toLowerCase());
     const hasDuplicate = lower.some((n, idx) => lower.indexOf(n) !== idx);
 
@@ -74,7 +72,6 @@ export class NewGameComponent {
       return;
     }
 
-    // Backend hívás
     this.gameService.createGame(nonEmpty).subscribe({
       next: game => this.router.navigate(['/game', game.id]),
       error: err => {
