@@ -141,7 +141,6 @@ namespace Canasta.Controllers
                 round = new Round
                 {
                     GameId = game.Id,
-                    Game = game,
                     RoundNumber = request.RoundNumber
                 };
                 _context.Rounds.Add(round);
@@ -154,10 +153,9 @@ namespace Canasta.Controllers
             {
                 score = new RoundScore
                 {
-                    Round = round,
-                    RoundId = round.Id,
                     TeamId = request.TeamId,
-                    Score = request.Score
+                    Score = request.Score,
+                    Round = round
                 };
                 _context.RoundScores.Add(score);
             }
@@ -166,25 +164,36 @@ namespace Canasta.Controllers
                 score.Score = request.Score;
             }
 
-            // Játék vége logika
-            var totals = game.Teams.ToDictionary(t => t.Id, t => 0);
+            await _context.SaveChangesAsync();
+
+            // 🔥 HELYES ÖSSZESÍTÉS
+            var teamTotals = game.Teams.ToDictionary(t => t.Id, _ => 0);
 
             foreach (var r in game.Rounds)
-                foreach (var s in r.Scores)
-                    totals[s.TeamId] += s.Score;
+                foreach (var sc in r.Scores)
+                    teamTotals[sc.TeamId] += sc.Score;
 
-            var winner = totals.FirstOrDefault(x => x.Value >= 10000);
+            // 🔥 Győztes meghatározása
+            var winnerTeam = game.Teams
+                .FirstOrDefault(t => teamTotals[t.Id] >= 10000);
 
-            if (winner.Value >= 10000)
+            if (winnerTeam != null)
             {
                 game.IsFinished = true;
-                game.WinningTeamId = winner.Key;
+                game.WinningTeamId = winnerTeam.Id;
+            }
+            else
+            {
+                game.IsFinished = false;
+                game.WinningTeamId = null;
             }
 
             await _context.SaveChangesAsync();
 
             return Ok();
         }
+
+
 
 
 
@@ -212,7 +221,6 @@ namespace Canasta.Controllers
             if (game == null)
                 return NotFound("Game not found.");
 
-            // 1 kör objektum
             var round = game.Rounds
                 .FirstOrDefault(r => r.RoundNumber == request.RoundNumber);
 
@@ -221,22 +229,22 @@ namespace Canasta.Controllers
                 round = new Round
                 {
                     GameId = game.Id,
-                    Game = game,
                     RoundNumber = request.RoundNumber
                 };
+
                 _context.Rounds.Add(round);
-                game.Rounds.Add(round);    // biztosan benne legyen a gyűjteményben
+                await _context.SaveChangesAsync();
             }
 
-            // pontok mentése minden csapatra
             foreach (var s in request.Scores)
             {
                 var score = round.Scores.FirstOrDefault(x => x.TeamId == s.TeamId);
+
                 if (score == null)
                 {
                     score = new RoundScore
                     {
-                        Round = round,
+                        RoundId = round.Id,
                         TeamId = s.TeamId,
                         Score = s.Score
                     };
@@ -248,23 +256,35 @@ namespace Canasta.Controllers
                 }
             }
 
-            // összpontok újraszámolása
-            var totals = game.Teams.ToDictionary(t => t.Id, t => 0);
+            await _context.SaveChangesAsync();
+
+            // 🔥 HELYES ÖSSZESÍTÉS: SEMMI MÁS, CSAK ROUNDOKBÓL SZÁMOLUNK
+            var teamTotals = game.Teams.ToDictionary(t => t.Id, _ => 0);
 
             foreach (var r in game.Rounds)
                 foreach (var sc in r.Scores)
-                    totals[sc.TeamId] += sc.Score;
+                    teamTotals[sc.TeamId] += sc.Score;
 
-            var winner = totals.FirstOrDefault(x => x.Value >= 10000);
+            // 🔥 HELYES GYŐZELEM ELLENŐRZÉS
+            var winnerTeam = game.Teams
+                .FirstOrDefault(t => teamTotals[t.Id] >= 10000);
 
-            if (winner.Value >= 10000)
+            if (winnerTeam != null)
             {
                 game.IsFinished = true;
-                game.WinningTeamId = winner.Key;
+                game.WinningTeamId = winnerTeam.Id;
+            }
+            else
+            {
+                game.IsFinished = false;
+                game.WinningTeamId = null;
             }
 
             await _context.SaveChangesAsync();
+
             return Ok();
         }
+
+
     }
 }
