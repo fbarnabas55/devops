@@ -7,16 +7,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<KanastaDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAngular",
-        policy => policy
-            .WithOrigins("http://localhost:4200") 
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials()
-        );
-});
 
 
 builder.Services.AddControllers();
@@ -33,7 +23,7 @@ if (builder.Environment.IsProduction())
 {
     builder.WebHost.ConfigureKestrel(options =>
     {
-        options.ListenAnyIP(int.Parse(builder.Configuration["settings:port"] ?? "6500"));
+        options.ListenAnyIP(int.Parse(builder.Configuration["settings:port"] ?? "7278"));
     });
 }
 

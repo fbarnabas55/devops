@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { ConfigService } from '../config.service';
 
 export interface TeamDto {
   id: number;
@@ -32,12 +33,14 @@ export interface GameDetailsDto {
 })
 export class GameService {
 
-  private baseUrl =  'https://localhost:7278/api/Games';
+  private get baseUrl(): string {
+    return this.configService.cfg.backendUrl;
+  }
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private configService: ConfigService) {}
   
 
-   createGame(teamNames: string[]): Observable<GameDetailsDto> {
+  createGame(teamNames: string[]): Observable<GameDetailsDto> {
     return this.http.post<GameDetailsDto>(this.baseUrl, { teamNames });
   }
 

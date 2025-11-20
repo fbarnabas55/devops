@@ -25,12 +25,7 @@ import { ConfigService } from './config.service';
     HttpClientModule,
     FormsModule
   ],
-  providers: [provideHttpClient(),{
-    provide: 'APP_INITIALIZER',
-    useFactory: (cfg:ConfigService)=>()=>cfg.load(),
-    deps: [ConfigService],
-    multi: true
-  }],
+  providers: [provideHttpClient()],
   bootstrap: [AppComponent]
 })
 export class AppModule { }
