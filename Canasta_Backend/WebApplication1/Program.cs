@@ -20,11 +20,26 @@ builder.Services.AddCors(options =>
 
 
 builder.Services.AddControllers();
+builder.Services.AddDbContext<KanastaDbContext>(opt =>
+{
+    opt.UseSqlServer(builder.Configuration["ConnectionStrings:DefaultConnection"]);
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddCors();
+
+if (builder.Environment.IsProduction())
+{
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.ListenAnyIP(int.Parse(builder.Configuration["settings:port"] ?? "6500"));
+    });
+}
+
 
 var app = builder.Build();
+
 
 if (app.Environment.IsDevelopment())
 {
@@ -34,10 +49,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAngular");
+app.UseCors(t => t
+    .WithOrigins(builder.Configuration["settings:FrontendUrl"] ?? "http://localhost:4200")
+    .AllowAnyHeader()
+    .AllowCredentials()
+    .AllowAnyMethod());
 
-
-app.UseAuthorization();
 
 app.MapControllers();
 

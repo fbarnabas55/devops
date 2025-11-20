@@ -6,9 +6,10 @@ import { AppComponent } from './app.component';
 import { HomeComponent } from './pages/home/home.component';
 import { NewGameComponent } from './pages/new-game/new-game.component';
 import { GameBoardComponent } from './pages/game-board/game-board.component';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, provideHttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { HeaderComponent } from './pages/header/header.component';
+import { ConfigService } from './config.service';
 
 @NgModule({
   declarations: [
@@ -24,7 +25,12 @@ import { HeaderComponent } from './pages/header/header.component';
     HttpClientModule,
     FormsModule
   ],
-  providers: [],
+  providers: [provideHttpClient(),{
+    provide: 'APP_INITIALIZER',
+    useFactory: (cfg:ConfigService)=>()=>cfg.load(),
+    deps: [ConfigService],
+    multi: true
+  }],
   bootstrap: [AppComponent]
 })
 export class AppModule { }
