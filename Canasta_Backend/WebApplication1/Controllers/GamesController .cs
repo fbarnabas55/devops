@@ -284,11 +284,31 @@ namespace Canasta.Controllers
             if (game == null)
                 return NotFound("Game not found.");
 
+            game.WinningTeamId = null;
+            await _context.SaveChangesAsync();
+
+            var scoreIds = game.Rounds
+                .SelectMany(r => r.Scores)
+                .Select(s => s.Id)
+                .ToList();
+
+            var scores = await _context.RoundScores
+                .Where(s => scoreIds.Contains(s.Id))
+                .ToListAsync();
+
+            _context.RoundScores.RemoveRange(scores);
+
+            _context.Rounds.RemoveRange(game.Rounds);
+
+            _context.Teams.RemoveRange(game.Teams);
+
             _context.Games.Remove(game);
+
             await _context.SaveChangesAsync();
 
             return Ok();
         }
+
 
 
 
