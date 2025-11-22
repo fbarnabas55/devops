@@ -272,6 +272,25 @@ namespace Canasta.Controllers
             return Ok();
         }
 
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteGame(int id)
+        {
+            var game = await _context.Games
+                .Include(g => g.Rounds)
+                    .ThenInclude(r => r.Scores)
+                .Include(g => g.Teams)
+                .FirstOrDefaultAsync(g => g.Id == id);
+
+            if (game == null)
+                return NotFound("Game not found.");
+
+            _context.Games.Remove(game);
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
+
+
 
     }
 }

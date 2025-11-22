@@ -9,10 +9,14 @@
   </div>
 
   <div *ngFor="let game of games" class="card mb-2 p-3">
-    <h5>{{ game.teamNames.join(' vs ') }}</h5>
+    <h5>{{ game.teamNames.join(' --vs-- ') }}</h5>
     <p class="mb-2">{{ game.statusText }}</p>
     <button class="btn btn-outline-success btn-sm" (click)="openGame(game.id)">
       Megnyitás
+    </button>
+
+    <button class="btn btn-outline-danger btn-sm" (click)="deleteGame(game.id)">
+      Törlés
     </button>
   </div>
 

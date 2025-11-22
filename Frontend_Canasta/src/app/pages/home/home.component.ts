@@ -24,6 +24,18 @@ export class HomeComponent implements OnInit {
     });
   }
 
+  deleteGame(id: number) {
+    if (!confirm('Biztosan törlöd ezt a játékot?')) return;
+
+    this.gameService.deleteGame(id).subscribe({
+      next: () => {
+        this.games = this.games.filter(g => g.id !== id);
+      },
+      error: err => console.error('Törlés hiba:', err)
+    }); 
+  }
+
+
   newGame() {
     this.router.navigate(['/new-game']);
   }

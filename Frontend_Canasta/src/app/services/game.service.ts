@@ -60,6 +60,11 @@ export class GameService {
     return this.http.get(`${this.baseUrl}/${id}`);
   }
 
+  deleteGame(id: number) {
+    return this.http.delete(`${this.baseUrl}/${id}`);
+  }
+
+
   updateScore(
     gameId: number,
     roundNumber: number,
