@@ -1,4 +1,4 @@
 export const environment = {
 
-    backendUrl: "http://devopscanasta.ddnsgeek.com:7278/api/Games"
+    backendUrl: "https://api.devopscanasta.ddnsgeek.com/api/games"
 }
