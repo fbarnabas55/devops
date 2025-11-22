@@ -10,13 +10,9 @@ builder.Services.AddDbContext<KanastaDbContext>(options =>
 
 
 builder.Services.AddControllers();
-builder.Services.AddDbContext<KanastaDbContext>(opt =>
-{
-    opt.UseSqlServer(builder.Configuration["ConnectionStrings:DefaultConnection"]);
-});
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 builder.Services.AddCors();
 
 if (builder.Environment.IsProduction())
@@ -30,6 +26,11 @@ if (builder.Environment.IsProduction())
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<KanastaDbContext>();
+    db.Database.Migrate();
+}
 
 if (app.Environment.IsDevelopment())
 {
