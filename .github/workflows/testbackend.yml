@@ -1,4 +1,4 @@
-name: Deploy TestBackend to Prod
+name: Deploy TestBackend to Test
 
 on:
   push:
@@ -15,16 +15,20 @@ jobs:
       RUNTIME: linux-x64
       SELF_CONTAINED: "true"
       PUBLISH_SINGLE_FILE: "true"
-      # Remote könyvtárak (a Debian szerveren)
-      REMOTE_BASE: /var/backend_test                  # gyökér a deployed appnak
-      REMOTE_RELEASES: /var/backend_test/releases      # ide mennek a verziók
-      REMOTE_CURRENT: /var/backend_test/current        # symlink az aktuális release-re
+
+      # Remote könyvtárak (TEST környezet)
+      REMOTE_BASE: /var/backend_test
+      REMOTE_RELEASES: /var/backend_test/releases
+      REMOTE_CURRENT: /var/backend_test/current
+
       SERVICE_NAME: testcanastabackend
       FRONTEND_URL: https://test.devopscanasta.ddnsgeek.com
+
       SSH_HOST: test.devopscanasta.ddnsgeek.com
       SSH_USER: root
-      # --- SECRET-ek (Repo Settings → Secrets and variables → Actions) ---
-      # SSH_KEY, SSH_PASS, DB_CONN
+      # Secret-ek:
+      # SSH_KEY, SSH_PASS, TEST_DB_CONN
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -99,7 +103,7 @@ jobs:
             sudo tar -xzf "/tmp/app-${{ github.sha }}.tar.gz" -C "$NEW_RELEASE"
             sudo rm -f "/tmp/app-${{ github.sha }}.tar.gz"
 
-            # appsettings.json módosítása (ConnectionStrings:DefaultConnection + settings:FrontendUrl -> secretből)
+            # appsettings.json módosítása (TEST adatbázis + TEST frontend URL)
             if command -v jq >/dev/null; then
               sudo jq \
                 --arg DefaultConnection "${{ secrets.TEST_DB_CONN }}" \
@@ -112,16 +116,9 @@ jobs:
               exit 1
             fi
 
-
-            # (Opcionális) tulajdonos állítás
-            if [ -n "${{ secrets.REMOTE_OWNER || '' }}" ]; then
-              sudo chown -R "${{ secrets.REMOTE_OWNER }}" "$BASE"
-            fi
-
             # Symlink csere atomikusan
             sudo ln -sfn "$NEW_RELEASE" "$CURRENT"
 
-            # Service újraindítás + engedélyezés
             sudo systemctl daemon-reload || true
             sudo systemctl start "$SERVICE"
             sudo systemctl enable "$SERVICE" || true
