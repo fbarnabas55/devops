@@ -15,7 +15,7 @@ jobs:
       REMOTE_RELEASES: /var/frontend_test/releases
       REMOTE_CURRENT: /var/frontend_test/current
       BACKEND_URL: https://test.api.devopscanasta.ddnsgeek.com/api/games
-      SSH_HOST: devopscanasta.ddnsgeek.com
+      SSH_HOST: test.devopscanasta.ddnsgeek.com
       SSH_USER: root
 
     steps:
