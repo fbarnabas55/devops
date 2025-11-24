@@ -1,0 +1,149 @@
+name: Deploy TestBackend to Test
+
+on:
+  push:
+    branches: [ "testdevelop" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      PROJECT_PATH: Canasta_Backend/WebApplication1/Canasta.csproj
+      PUBLISH_DIR: publish
+      RUNTIME: linux-x64
+      SELF_CONTAINED: "true"
+      PUBLISH_SINGLE_FILE: "true"
+      REMOTE_BASE: /var/backend_test
+      REMOTE_RELEASES: /var/backend_test/releases
+      REMOTE_CURRENT: /var/backend_test/current
+      SERVICE_NAME: testcanastabackend
+      FRONTEND_URL: https://test.devopscanasta.ddnsgeek.com
+      SSH_HOST: devopscanasta.ddnsgeek.com
+      SSH_USER: root
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore ${{ env.PROJECT_PATH }}
+
+      - name: Publish (Release, Linux)
+        run: |
+          dotnet publish ${{ env.PROJECT_PATH }} \
+            -c Release \
+            -r ${{ env.RUNTIME }} \
+            -p:PublishSingleFile=${{ env.PUBLISH_SINGLE_FILE }} \
+            --self-contained ${{ env.SELF_CONTAINED }} \
+            -o ${{ env.PUBLISH_DIR }}
+
+      # ------------------------
+      # ÁLLANDÓ TEST PORT: 7279
+      # ------------------------
+      - name: Force TEST backend port = 7279 in appsettings.json
+        run: |
+          jq '.settings.port = "7279"' \
+            ${{ env.PUBLISH_DIR }}/appsettings.json \
+            > ${{ env.PUBLISH_DIR }}/appsettings.tmp
+          mv ${{ env.PUBLISH_DIR }}/appsettings.tmp ${{ env.PUBLISH_DIR }}/appsettings.json
+
+      # ConnectionString + FrontendUrl frissítése
+      - name: Apply DB Connection and FrontendUrl
+        run: |
+          jq \
+            --arg DefaultConnection "${{ secrets.TEST_DB_CONN }}" \
+            --arg FrontendUrl "${{ env.FRONTEND_URL }}" \
+            '.ConnectionStrings.DefaultConnection = $DefaultConnection
+            | .settings.FrontendUrl = $FrontendUrl' \
+            ${{ env.PUBLISH_DIR }}/appsettings.json \
+            > ${{ env.PUBLISH_DIR }}/appsettings.updated.json
+
+          mv ${{ env.PUBLISH_DIR }}/appsettings.updated.json ${{ env.PUBLISH_DIR }}/appsettings.json
+
+      - name: Pack artifact (tar.gz)
+        run: |
+          tar -C ${{ env.PUBLISH_DIR }} -czf app-${{ github.sha }}.tar.gz .
+
+      - name: Add remote host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ env.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload package via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASS }}
+          source: "app-${{ github.sha }}.tar.gz"
+          target: "/tmp/"
+
+      - name: Deploy on server (atomic release switch + restart)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASS }}
+          script: |
+            set -euo pipefail
+
+            SERVICE="${{ env.SERVICE_NAME }}"
+            BASE="${{ env.REMOTE_BASE }}"
+            RELEASES="${{ env.REMOTE_RELEASES }}"
+            CURRENT="${{ env.REMOTE_CURRENT }}"
+            TS="$(date +%Y%m%d%H%M%S)-${{ github.sha }}"
+            NEW_RELEASE="${RELEASES}/${TS}"
+
+            sudo mkdir -p "$RELEASES"
+            sudo mkdir -p "$BASE"
+            sudo systemctl stop "$SERVICE" || true
+
+            sudo mkdir -p "$NEW_RELEASE"
+            sudo tar -xzf "/tmp/app-${{ github.sha }}.tar.gz" -C "$NEW_RELEASE"
+            sudo rm -f "/tmp/app-${{ github.sha }}.tar.gz"
+
+            # ------------------------
+            # ÁLLANDÓ TEST PORT: 7279
+            # Service ENV beállítása
+            # ------------------------
+            sudo sed -i \
+              's|ASPNETCORE_URLS=.*|ASPNETCORE_URLS=http://0.0.0.0:7279|' \
+              /etc/systemd/system/${SERVICE}.service || true
+
+            # Symlink switch
+            sudo ln -sfn "$NEW_RELEASE" "$CURRENT"
+
+            sudo systemctl daemon-reload
+            sudo systemctl restart "$SERVICE"
+            sudo systemctl enable "$SERVICE" || true
+
+            # Apache proxy port fix (optional)
+            if [ -d /etc/apache2 ]; then
+              sudo sed -i 's|127.0.0.1:[0-9]*|127.0.0.1:7279|g' /etc/apache2/sites-available/*.conf || true
+              sudo systemctl restart apache2 || true
+            fi
+
+            # Tarts meg 5 release-t
+            COUNT=$(ls -1dt "$RELEASES"/* | wc -l || true)
+            if [ "$COUNT" -gt 5 ]; then
+              ls -1dt "$RELEASES"/* | tail -n +6 | xargs -r sudo rm -rf
+            fi
+
+            sudo systemctl status "$SERVICE" --no-pager -l || true
+
