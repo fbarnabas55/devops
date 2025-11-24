@@ -1,4 +1,4 @@
-name: Deploy Backend to Prod
+name: Deploy TestBackend to Test
 
 on:
   push:
@@ -9,22 +9,19 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # --- ÁLLÍTHATÓ ---
       PROJECT_PATH: Canasta_Backend/WebApplication1/Canasta.csproj
       PUBLISH_DIR: publish
       RUNTIME: linux-x64
       SELF_CONTAINED: "true"
       PUBLISH_SINGLE_FILE: "true"
-      # Remote könyvtárak (a Debian szerveren)
-      REMOTE_BASE: /var/backend_test                   # gyökér a deployed appnak
-      REMOTE_RELEASES: /var/backend_test/releases      # ide mennek a verziók
-      REMOTE_CURRENT: /var/backend_test/current        # symlink az aktuális release-re
+      REMOTE_BASE: /var/backend_test
+      REMOTE_RELEASES: /var/backend_test/releases
+      REMOTE_CURRENT: /var/backend_test/current
       SERVICE_NAME: testcanastabackend
       FRONTEND_URL: https://test.devopscanasta.ddnsgeek.com
       SSH_HOST: devopscanasta.ddnsgeek.com
       SSH_USER: root
-      # --- SECRET-ek (Repo Settings → Secrets and variables → Actions) ---
-      # SSH_KEY, SSH_PASS, DB_CONN
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,6 +51,29 @@ jobs:
             --self-contained ${{ env.SELF_CONTAINED }} \
             -o ${{ env.PUBLISH_DIR }}
 
+      # ------------------------
+      # ÁLLANDÓ TEST PORT: 7279
+      # ------------------------
+      - name: Force TEST backend port = 7279 in appsettings.json
+        run: |
+          jq '.settings.port = "7279"' \
+            ${{ env.PUBLISH_DIR }}/appsettings.json \
+            > ${{ env.PUBLISH_DIR }}/appsettings.tmp
+          mv ${{ env.PUBLISH_DIR }}/appsettings.tmp ${{ env.PUBLISH_DIR }}/appsettings.json
+
+      # ConnectionString + FrontendUrl frissítése
+      - name: Apply DB Connection and FrontendUrl
+        run: |
+          jq \
+            --arg DefaultConnection "${{ secrets.TEST_DB_CONN }}" \
+            --arg FrontendUrl "${{ env.FRONTEND_URL }}" \
+            '.ConnectionStrings.DefaultConnection = $DefaultConnection
+            | .settings.FrontendUrl = $FrontendUrl' \
+            ${{ env.PUBLISH_DIR }}/appsettings.json \
+            > ${{ env.PUBLISH_DIR }}/appsettings.updated.json
+
+          mv ${{ env.PUBLISH_DIR }}/appsettings.updated.json ${{ env.PUBLISH_DIR }}/appsettings.json
+
       - name: Pack artifact (tar.gz)
         run: |
           tar -C ${{ env.PUBLISH_DIR }} -czf app-${{ github.sha }}.tar.gz .
@@ -73,7 +93,7 @@ jobs:
           source: "app-${{ github.sha }}.tar.gz"
           target: "/tmp/"
 
-      - name: Deploy on server (atomic symlink switch + systemd restart)
+      - name: Deploy on server (atomic release switch + restart)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ env.SSH_HOST }}
@@ -92,44 +112,38 @@ jobs:
 
             sudo mkdir -p "$RELEASES"
             sudo mkdir -p "$BASE"
-            sudo systemctl stop "$SERVICE"
+            sudo systemctl stop "$SERVICE" || true
 
-            # Kibontás új release mappába
             sudo mkdir -p "$NEW_RELEASE"
             sudo tar -xzf "/tmp/app-${{ github.sha }}.tar.gz" -C "$NEW_RELEASE"
             sudo rm -f "/tmp/app-${{ github.sha }}.tar.gz"
 
-            # appsettings.json módosítása (ConnectionStrings:DefaultConnection + settings:FrontendUrl -> secretből)
-            if command -v jq >/dev/null; then
-              sudo jq \
-                --arg DefaultConnection "${{ secrets.TEST_DB_CONN }}" \
-                --arg FrontendUrl "${{ env.FRONTEND_URL }}" \
-                '.ConnectionStrings.DefaultConnection = $DefaultConnection | .settings.FrontendUrl = $FrontendUrl' \
-                "$NEW_RELEASE/appsettings.json" | sudo tee "$NEW_RELEASE/appsettings.json.tmp" > /dev/null
-              sudo mv "$NEW_RELEASE/appsettings.json.tmp" "$NEW_RELEASE/appsettings.json"
-            else
-              echo "jq nincs telepítve, telepíteni kell!"
-              exit 1
-            fi
+            # ------------------------
+            # ÁLLANDÓ TEST PORT: 7279
+            # Service ENV beállítása
+            # ------------------------
+            sudo sed -i \
+              's|ASPNETCORE_URLS=.*|ASPNETCORE_URLS=http://0.0.0.0:7279|' \
+              /etc/systemd/system/${SERVICE}.service || true
 
-
-            # (Opcionális) tulajdonos állítás
-            if [ -n "${{ secrets.REMOTE_OWNER || '' }}" ]; then
-              sudo chown -R "${{ secrets.REMOTE_OWNER }}" "$BASE"
-            fi
-
-            # Symlink csere atomikusan
+            # Symlink switch
             sudo ln -sfn "$NEW_RELEASE" "$CURRENT"
 
-            # Service újraindítás + engedélyezés
-            sudo systemctl daemon-reload || true
-            sudo systemctl start "$SERVICE"
+            sudo systemctl daemon-reload
+            sudo systemctl restart "$SERVICE"
             sudo systemctl enable "$SERVICE" || true
 
-            # Régi release-ek törlése (tartsunk meg 5-öt)
+            # Apache proxy port fix (optional)
+            if [ -d /etc/apache2 ]; then
+              sudo sed -i 's|127.0.0.1:[0-9]*|127.0.0.1:7279|g' /etc/apache2/sites-available/*.conf || true
+              sudo systemctl restart apache2 || true
+            fi
+
+            # Tarts meg 5 release-t
             COUNT=$(ls -1dt "$RELEASES"/* | wc -l || true)
             if [ "$COUNT" -gt 5 ]; then
               ls -1dt "$RELEASES"/* | tail -n +6 | xargs -r sudo rm -rf
             fi
 
             sudo systemctl status "$SERVICE" --no-pager -l || true
+
